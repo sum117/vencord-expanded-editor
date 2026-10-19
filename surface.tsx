@@ -114,6 +114,7 @@ function createSession(channelId: string, opening: Opening): Session {
             dispatch({ type: "send/start", plan });
             inFlight = (async () => {
                 for (let i = 0; i < plan.chunks.length; i++) {
+                    if (stop.signal.aborted) return;
                     const wait = slowmodeWaitMs(channelId, i > 0);
                     if (wait > 0) {
                         dispatch({ type: "send/wait", until: Date.now() + wait + SLOWMODE_MARGIN_MS });
