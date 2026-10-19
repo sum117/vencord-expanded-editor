@@ -8,14 +8,20 @@
 // only; every prop is a value or a callback.
 
 import { BaseText } from "@components/BaseText";
-import { Button } from "@components/Button";
+import { Button, TextButton } from "@components/Button";
+import { ReplyIcon } from "@components/Icons";
 import { IS_MAC } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
 import { Tooltip, useEffect, useRef, useState } from "@webpack/common";
 import type { ReactNode } from "react";
 
 import { type FormatId, FORMATS, type FormatSpec } from "./format";
+import type { GoalChoice, GoalProgress, GoalSlot, WordGoals } from "./goals";
+import type { ReplyTarget } from "./ports";
+import type { Derived, SendState } from "./session";
 import { type FaceId, FACES, FONT_SIZES } from "./settings";
+import { sendLabel } from "./split";
+import { formatCount, formatReadingTime } from "./text";
 
 export const cl = classNameFactory("vc-ee-");
 
@@ -185,5 +191,123 @@ export function RecentIcon(): ReactNode {
             <rect x="3" y="4" width="18" height="16" rx="2" />
             <path d="M15 4v16" />
         </svg>
+    );
+}
+
+/** 2px goal meter on a bar's lower edge; one glow when the goal is reached. */
+export function Meter({ progress }: { progress: GoalProgress; }): ReactNode {
+    return (
+        <div
+            className={cl("meter")}
+            role="progressbar"
+            aria-label="Word goal"
+            aria-valuemin={0}
+            aria-valuemax={progress.target}
+            aria-valuenow={Math.min(progress.words, progress.target)}
+            data-reached={progress.reached || undefined}
+        >
+            <div className={cl("meter-fill")} style={{ inlineSize: `${progress.ratio * 100}%` }} />
+        </div>
+    );
+}
+
+export function GoalPicker({ goals, choice, onChange, size = "xs" }: { goals: WordGoals; choice: GoalChoice; onChange(c: GoalChoice): void; size?: "xs" | "sm"; }): ReactNode {
+    const names = ["Short", "Medium", "Long"];
+    return (
+        <Segmented<GoalChoice>
+            label="Word goal"
+            size={size}
+            value={choice}
+            onChange={onChange}
+            options={[
+                { value: null, label: "No goal" },
+                ...goals.map((g, i) => ({ value: i as GoalSlot, label: formatCount(g), title: `${names[i]} goal: ${formatCount(g)} words` })),
+            ]}
+        />
+    );
+}
+
+/** "1,284 words · 3,412 / 4,000 · 6 min read"; past the limit the count of messages replaces the warning. */
+export function Status({ derived }: { derived: Derived; }): ReactNode {
+    const { stats, budget } = derived;
+    return (
+        <BaseText tag="span" size="sm" className={cl("status")} defaultColor={false}>
+            <span>{formatCount(stats.words)} {stats.words === 1 ? "word" : "words"}</span>
+            <span className={cl("dot")} aria-hidden="true">·</span>
+            <span className={cl("chars")} data-tone={budget.tone}>
+                {formatCount(budget.chars)} / {formatCount(budget.limit)}
+                {budget.tone === "split" && <span className={cl("messages")}> · {budget.messages} messages</span>}
+            </span>
+            {stats.readingMinutes > 0 && <>
+                <span className={cl("dot")} aria-hidden="true">·</span>
+                <span>{formatReadingTime(stats.readingMinutes)}</span>
+            </>}
+        </BaseText>
+    );
+}
+
+function formatClock(ms: number): string {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Re-renders every quarter second while `until` is in the future. */
+function useCountdown(until: number | null): number {
+    const [now, setNow] = useState(Date.now);
+    useEffect(() => {
+        if (until === null) return;
+        const t = setInterval(() => setNow(Date.now()), 250);
+        return () => clearInterval(t);
+    }, [until]);
+    return until === null ? 0 : until - now;
+}
+
+export function SendButton({ send, messages, onSend }: { send: SendState; messages: number; onSend(): void; }): ReactNode {
+    const left = useCountdown(send.phase === "sending" ? send.resumeAt : null);
+    let label = sendLabel(messages);
+    if (send.phase === "sending") {
+        label = send.resumeAt !== null && left > 0
+            ? `Next in ${formatClock(left)}`
+            : send.plan.chunks.length > 1 ? `Sending ${send.sent + 1} of ${send.plan.chunks.length}…` : "Sending…";
+    }
+    return (
+        <Button variant="primary" size="small" className={cl("send")} disabled={messages === 0 || send.phase === "sending"} onClick={onSend}>
+            {label}
+        </Button>
+    );
+}
+
+export function FailedNotice({ send, onRetry, onDismiss }: { send: Extract<SendState, { phase: "failed"; }>; onRetry(): void; onDismiss(): void; }): ReactNode {
+    const sent = send.sent === 0 ? "Nothing was sent." : `Sent ${send.sent} of ${send.total}.`;
+    return (
+        <div className={cl("notice")} role="alert">
+            <BaseText tag="span" size="sm" defaultColor={false} className={cl("notice-text")}>
+                {sent} The rest is here. <span className={cl("notice-reason")}>{send.reason}</span>
+            </BaseText>
+            <TextButton variant="primary" onClick={onRetry}>Try again</TextButton>
+            <TextButton variant="secondary" onClick={onDismiss}>Dismiss</TextButton>
+        </div>
+    );
+}
+
+export function ReplyChip({ reply, onCancel }: { reply: ReplyTarget; onCancel(): void; }): ReactNode {
+    return (
+        <span className={cl("reply")}>
+            <ReplyIcon width={14} height={14} />
+            <BaseText tag="span" size="sm" defaultColor={false}>Replying to <strong>{reply.authorName}</strong></BaseText>
+            <button type="button" className={cl("reply-cancel")} aria-label="Cancel reply" onClick={onCancel}>×</button>
+        </span>
+    );
+}
+
+/** Calm's corner line: the count, the goal once, or how to leave. Keyed spans replay their CSS fade. */
+export function Whisper({ words, progress, flash, entered }: { words: number; progress: GoalProgress | null; flash: number; entered: number; }): ReactNode {
+    const count = progress ? `${formatCount(words)} / ${formatCount(progress.target)} words` : `${formatCount(words)} ${words === 1 ? "word" : "words"}`;
+    return (
+        <div className={cl("whisper")} aria-live="polite">
+            <BaseText tag="span" size="xs" defaultColor={false} className={cl("whisper-count")} data-wait={flash > 0 ? "goal" : "hint"} key={`c${flash}-${entered}`}>{count}</BaseText>
+            {flash > 0 && <BaseText tag="span" size="xs" defaultColor={false} className={cl("whisper-goal")} key={`g${flash}`}>Goal reached · {formatCount(words)} words</BaseText>}
+            <BaseText tag="span" size="xs" defaultColor={false} className={cl("whisper-hint")} key={`h${entered}`}>Esc leaves calm</BaseText>
+        </div>
     );
 }

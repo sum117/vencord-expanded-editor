@@ -10,8 +10,8 @@
 
 import { BaseText } from "@components/BaseText";
 import { classes } from "@utils/misc";
-import { React, useLayoutEffect, useRef } from "@webpack/common";
-import type { MouseEvent, ReactNode, Ref } from "react";
+import { React, useEffect, useLayoutEffect, useRef } from "@webpack/common";
+import type { MouseEvent, ReactNode, Ref, RefObject } from "react";
 
 import { cl } from "./chrome";
 import { applyFormat, type Edit, type FormatId, insertBlock, minimalPatch } from "./format";
@@ -85,6 +85,8 @@ export function Column({ ref, state, plan, placeholder, onInput }: ColumnProps):
         el.focus({ preventScroll: true });
     }, []);
 
+    useTypewriter(scroller, area, state.calm && writing);
+
     const focusEnd = (e: MouseEvent<HTMLDivElement>) => {
         const el = area.current;
         if (e.target !== e.currentTarget || !el || !writing) return;
@@ -111,6 +113,57 @@ export function Column({ ref, state, plan, placeholder, onInput }: ColumnProps):
             </div>
         </div>
     );
+}
+
+/** The caret line's top in px from the textarea's top, measured on a hidden twin that wraps the same way. */
+function caretTop(el: HTMLTextAreaElement, mirror: HTMLDivElement): number {
+    const cs = getComputedStyle(el);
+    mirror.style.width = `${el.clientWidth}px`;
+    mirror.style.font = cs.font;
+    mirror.style.lineHeight = cs.lineHeight;
+    mirror.style.letterSpacing = cs.letterSpacing;
+    mirror.textContent = el.value.slice(0, el.selectionEnd);
+    const marker = document.createElement("span");
+    marker.textContent = "\u200b";
+    mirror.append(marker);
+    return marker.offsetTop;
+}
+
+/**
+ * Calm writing keeps the caret's line at the middle of the screen. Instant
+ * scrolling, because a smooth scroll lags a fast typist; a wheel scroll is
+ * left alone until the next keystroke or caret move.
+ */
+function useTypewriter(scroller: RefObject<HTMLDivElement | null>, area: RefObject<HTMLTextAreaElement | null>, on: boolean) {
+    useEffect(() => {
+        const sc = scroller.current;
+        const el = area.current;
+        if (!on || !sc || !el) return;
+        const mirror = document.createElement("div");
+        mirror.className = cl("mirror");
+        mirror.setAttribute("aria-hidden", "true");
+        el.after(mirror);
+        let frame = 0;
+        const center = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                if (document.activeElement !== el) return;
+                const line = parseFloat(getComputedStyle(el).lineHeight);
+                const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
+                const target = top + caretTop(el, mirror) + line / 2 - sc.clientHeight / 2;
+                if (Math.abs(target - sc.scrollTop) > line / 2) sc.scrollTop = Math.max(0, target);
+            });
+        };
+        center();
+        el.addEventListener("input", center);
+        document.addEventListener("selectionchange", center);
+        return () => {
+            cancelAnimationFrame(frame);
+            el.removeEventListener("input", center);
+            document.removeEventListener("selectionchange", center);
+            mirror.remove();
+        };
+    }, [on]);
 }
 
 const CUT_NAMES: Partial<Record<Boundary, string>> = {

@@ -198,7 +198,9 @@ function useFocusGuard(root: RefObject<HTMLDivElement | null>, active: boolean) 
                 return;
             }
             if (!target.isContentEditable && !target.matches("textarea, input")) return;
-            const back = last && el.contains(last) && last.getClientRects().length ? last : el;
+            const back = last && el.contains(last) && last.getClientRects().length
+                ? last
+                : el.querySelector<HTMLElement>("textarea:not([hidden])") ?? el;
             back.focus({ preventScroll: true });
         };
         document.addEventListener("focusin", onFocusIn, true);
@@ -222,6 +224,11 @@ function Root({ session, transitionState }: RenderModalProps & { session: Sessio
             onKeyDown={e => {
                 if (e.key === "Tab") trapTab(e);
                 if (e.key !== "Escape") e.stopPropagation();
+            }}
+            onMouseDown={e => {
+                // A press on a bar's bare space keeps the caret where it was instead of dropping focus to the page.
+                const target = e.target as HTMLElement;
+                if (target.closest(`.${cl("bar")}`) && !target.closest(FOCUSABLE)) e.preventDefault();
             }}
         >
             <ErrorBoundary fallback={() => <SurfaceCrash session={session} />}>
