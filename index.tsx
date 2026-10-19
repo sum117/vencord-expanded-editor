@@ -29,9 +29,10 @@ const attachMenuPatch: NavContextMenuPatchCallback = (children, props: { channel
     );
 };
 
+/** Mod+Shift+O: free in Discord's keybinds (Mod+Shift+E marks the top inbox channel read). */
 function onGlobalKeyDown(e: KeyboardEvent) {
     const mod = IS_MAC ? e.metaKey : e.ctrlKey;
-    if (!mod || !e.shiftKey || e.altKey || e.key.toLowerCase() !== "e") return;
+    if (!mod || !e.shiftKey || e.altKey || e.key.toLowerCase() !== "o") return;
     const channelId = SelectedChannelStore.getChannelId();
     if (!channelId || !canSendIn(channelId)) return;
     e.preventDefault();
@@ -40,7 +41,7 @@ function onGlobalKeyDown(e: KeyboardEvent) {
 
 export default definePlugin({
     name: "ExpandedEditor",
-    description: "A full-screen writing surface for long posts: preview, stats, word goals, calm mode, and sending with automatic splitting.",
+    description: "A full-screen writing surface for long posts: preview, stats, word goals, calm mode, and sending with automatic splitting. Open it from the + menu or with Ctrl+Shift+O.",
     authors: [{ name: "sum117", id: 0n }],
     settings,
     managedStyle,

@@ -4,9 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// Presentational pieces for the bars. Vencord components and Discord tokens
-// only; every prop is a value or a callback.
-
 import { BaseText } from "@components/BaseText";
 import { Button, TextButton } from "@components/Button";
 import { ReplyIcon } from "@components/Icons";
@@ -58,7 +55,6 @@ export function Segmented<T extends string | number | null>(props: {
     );
 }
 
-/** Icon button with a Discord tooltip; `pressed` makes it a toggle. */
 export function IconButton(props: {
     label: string;
     hint?: string;

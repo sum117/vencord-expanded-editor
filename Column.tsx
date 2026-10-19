@@ -21,7 +21,6 @@ import type { Boundary, MessagePlan } from "./split";
 
 export interface ColumnHandle {
     format(id: FormatId): void;
-    /** Sets a block (a quote) on its own paragraph at the caret. */
     insertBlock(block: string): void;
     focus(): void;
 }

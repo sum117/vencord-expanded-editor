@@ -6,16 +6,19 @@
 
 import { BaseText } from "@components/BaseText";
 import { Button } from "@components/Button";
+import ErrorBoundary from "@components/ErrorBoundary";
 import { EyeIcon, PencilIcon } from "@components/Icons";
 import { IS_MAC } from "@utils/constants";
 import { classes } from "@utils/misc";
 import { React, useEffect, useMemo, useRef } from "@webpack/common";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 
-import { CalmIcon, cl, FailedNotice, GoalPicker, IconButton, Meter, ReplyChip, Segmented, SendButton, Status, Toolbar, TypePicker, Whisper } from "./chrome";
+import { CalmIcon, cl, FailedNotice, GoalPicker, IconButton, Meter, RecentIcon, ReplyChip, Segmented, SendButton, Status, Toolbar, TypePicker, Whisper } from "./chrome";
 import { Column, type ColumnHandle } from "./Column";
+import { quoteOf } from "./format";
 import { goalCrossed, parseGoalChoice } from "./goals";
-import { cancelReply, channelLabel, messageLimit, usePendingReply } from "./ports";
+import { cancelReply, channelLabel, messageLimit, type RecentMessage, usePendingReply } from "./ports";
+import { RecentPanel } from "./RecentPanel";
 import { derive, keyAction, keyHint, KEYMAP, type View } from "./session";
 import { FACES, readFace, readFontSize, readGoals, settings } from "./settings";
 import type { Session, Snapshot } from "./surface";
@@ -24,7 +27,7 @@ const hintFor = (command: string) => keyHint(KEYMAP.find(k => k.command === comm
 
 export function Editor({ session, snapshot }: { session: Session; snapshot: Snapshot; }): ReactNode {
     const { state } = snapshot;
-    const prefs = settings.use(["face", "fontSize", "goal", "goalShort", "goalMedium", "goalLong"]);
+    const prefs = settings.use(["face", "fontSize", "goal", "goalShort", "goalMedium", "goalLong", "recentOpen"]);
     const column = useRef<ColumnHandle>(null);
     const workspace = useRef<HTMLDivElement>(null);
     const limit = useMemo(messageLimit, []);
@@ -67,6 +70,16 @@ export function Editor({ session, snapshot }: { session: Session; snapshot: Snap
         const el = workspace.current;
         if (el && (el.dataset.typing !== undefined) !== on) el.toggleAttribute("data-typing", on);
     };
+
+    function quote(message: RecentMessage) {
+        const block = quoteOf(message.authorName, message.content);
+        if (state.view === "write") {
+            column.current?.insertBlock(block);
+            return;
+        }
+        setView("write");
+        setTimeout(() => column.current?.insertBlock(block));
+    }
 
     function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
         const action = keyAction(e, IS_MAC);
@@ -132,6 +145,9 @@ export function Editor({ session, snapshot }: { session: Session; snapshot: Snap
                             onFace={f => { settings.store.face = f; }}
                             onSize={s => { settings.store.fontSize = s; }}
                         />
+                        <IconButton label="Recent messages" pressed={!!prefs.recentOpen} onClick={() => { settings.store.recentOpen = !prefs.recentOpen; }}>
+                            <RecentIcon />
+                        </IconButton>
                         <IconButton label="Calm" hint={hintFor("toggleCalm")} onClick={() => setCalm(true)}>
                             <CalmIcon />
                         </IconButton>
@@ -149,6 +165,11 @@ export function Editor({ session, snapshot }: { session: Session; snapshot: Snap
                     session.dispatch({ type: "input", text: t });
                 }}
             />
+            {prefs.recentOpen && !state.calm && (
+                <ErrorBoundary noop>
+                    <RecentPanel channelId={state.channelId} onQuote={quote} />
+                </ErrorBoundary>
+            )}
             {state.calm ? (
                 <Whisper words={derived.stats.words} progress={progress} flash={calmFlash} entered={calmEntries.current.count} />
             ) : (

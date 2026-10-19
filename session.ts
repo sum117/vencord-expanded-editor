@@ -128,7 +128,6 @@ export function escapeIntent(state: EditorState): "leaveCalm" | "close" {
 export interface Budget {
     readonly chars: number;
     readonly limit: number;
-    /** How many messages Send posts; 0 for blank text. */
     readonly messages: number;
     /** "near" from 90% of the limit while one message; "split" past it. */
     readonly tone: "quiet" | "near" | "split";

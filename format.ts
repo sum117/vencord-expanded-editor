@@ -31,7 +31,6 @@ export interface FormatSpec {
     readonly id: FormatId;
     readonly glyph: string;
     readonly label: string;
-    /** Mod+key shortcut. */
     readonly key?: "b" | "i" | "u";
     /** Toolbar group; a hairline separates groups. */
     readonly group: 0 | 1 | 2;

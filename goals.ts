@@ -40,7 +40,6 @@ export function goalProgress(words: number, goals: WordGoals, choice: GoalChoice
     return { target, words, ratio: Math.min(1, words / target), reached: words >= target };
 }
 
-/** Whether to acknowledge now: reached, and not already acknowledged for this target. */
 export function goalCrossed(progress: GoalProgress | null, acknowledged: number | null): boolean {
     return progress !== null && progress.reached && acknowledged !== progress.target;
 }
