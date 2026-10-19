@@ -17,7 +17,7 @@ import {
 } from "@webpack/common";
 import type { ReactNode } from "react";
 
-import { chooseOpening } from "./session";
+import { decideOpening, type JournalEntry, type Opening } from "./session";
 
 const CHANNEL_MESSAGE_DRAFT = 0;
 
@@ -33,40 +33,58 @@ const SlowmodeStore: { getSlowmodeCooldownGuess(channelId: string, type?: number
 const markupClasses = findCssClassesLazy("markup", "codeContainer");
 const messageClasses = findCssClassesLazy("messageContent", "markupRtl");
 
-const overflowKey = (channelId: string) => `ExpandedEditor:overflow:${channelId}`;
-/** Channels with a stored overflow copy, so short drafts don't touch IndexedDB. */
-const overflowing = new Set<string>();
-let overflowWrites = Promise.resolve();
+const journalKey = (channelId: string) => `ExpandedEditor:journal:${channelId}`;
+/** After a close, Discord persists the draft within 8-20 s (measured); the journal outlives that window. */
+const JOURNAL_GRACE_MS = 30_000;
+const pendingDeletes = new Map<string, ReturnType<typeof setTimeout>>();
+let journalWrites = Promise.resolve();
 
-function queueOverflow(write: () => Promise<void>) {
-    overflowWrites = overflowWrites.then(write, write).catch(() => { });
+/** One chain for every journal write, so a late set can never land after a delete. */
+function queueJournal(write: () => Promise<void>) {
+    journalWrites = journalWrites.then(write, write).catch(() => { });
+}
+
+function parseJournal(raw: unknown): JournalEntry | undefined {
+    const e = raw as Partial<JournalEntry> | undefined;
+    return typeof e?.text === "string" && typeof e.savedAt === "number" ? { text: e.text, savedAt: e.savedAt } : undefined;
 }
 
 /**
  * Discord's chat-input draft. `saveDraft` updates the store and the mounted
- * chat box at once, and Discord persists it, so it is both the hand-off and
- * the crash copy. Never `changeDraft`: that leaves the visible input stale.
- * Discord cuts drafts at 4,500 characters (read back live), so a longer text
- * also keeps a full copy in Vencord's DataStore until it fits again.
+ * chat box at once; never `changeDraft`, which leaves the visible input stale.
+ * Discord writes drafts to disk only 8-20 s later and cuts them at 4,500
+ * characters, so every write also goes to a journal in Vencord's DataStore.
  */
 export const draft = {
-    /** The text to open with: the chat box's draft, or our full copy when the chat box holds it cut short. */
-    async open(channelId: string): Promise<string> {
-        const chatBox = DraftStore.getDraft(channelId, CHANNEL_MESSAGE_DRAFT) ?? "";
-        const full = await DataStore.get<string>(overflowKey(channelId)).catch(() => undefined);
-        if (typeof full === "string") overflowing.add(channelId);
-        return chooseOpening(chatBox, full);
+    read(channelId: string): string {
+        return DraftStore.getDraft(channelId, CHANNEL_MESSAGE_DRAFT) ?? "";
+    },
+    async open(channelId: string): Promise<Opening> {
+        clearTimeout(pendingDeletes.get(channelId));
+        pendingDeletes.delete(channelId);
+        const chatBox = draft.read(channelId);
+        const journal = parseJournal(await DataStore.get(journalKey(channelId)).catch(() => undefined));
+        const opening = decideOpening(chatBox, journal);
+        if (opening.journalRedundant) queueJournal(() => DataStore.del(journalKey(channelId)));
+        return opening;
     },
     write(channelId: string, text: string) {
         if (text === "") DraftActions.clearDraft(channelId, CHANNEL_MESSAGE_DRAFT);
         else DraftActions.saveDraft(channelId, text, CHANNEL_MESSAGE_DRAFT);
-        const kept = DraftStore.getDraft(channelId, CHANNEL_MESSAGE_DRAFT) ?? "";
-        if (kept !== text) {
-            overflowing.add(channelId);
-            queueOverflow(() => DataStore.set(overflowKey(channelId), text));
-        } else if (overflowing.delete(channelId)) {
-            queueOverflow(() => DataStore.del(overflowKey(channelId)));
-        }
+        const entry: JournalEntry = { text, savedAt: Date.now() };
+        queueJournal(() => DataStore.set(journalKey(channelId), entry));
+    },
+    /**
+     * The session is over. The journal goes once Discord has surely persisted
+     * the draft, unless the chat box holds the text cut short.
+     */
+    release(channelId: string, text: string) {
+        if (draft.read(channelId) !== text) return;
+        clearTimeout(pendingDeletes.get(channelId));
+        pendingDeletes.set(channelId, setTimeout(() => {
+            pendingDeletes.delete(channelId);
+            queueJournal(() => DataStore.del(journalKey(channelId)));
+        }, JOURNAL_GRACE_MS));
     },
 };
 

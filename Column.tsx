@@ -22,6 +22,8 @@ import type { Boundary, MessagePlan } from "./split";
 export interface ColumnHandle {
     format(id: FormatId): void;
     insertBlock(block: string): void;
+    /** Replaces the whole text as one undoable edit. */
+    replaceAll(text: string): void;
     focus(): void;
 }
 
@@ -67,6 +69,11 @@ export function Column({ ref, state, plan, placeholder, onInput }: ColumnProps):
             const el = area.current;
             if (!el || !editable) return;
             commitEdit(el, insertBlock(el.value, selectionOf(el), block));
+        },
+        replaceAll(text) {
+            const el = area.current;
+            if (!el || !editable) return;
+            commitEdit(el, { text, selection: { start: text.length, end: text.length } });
         },
         focus: () => area.current?.focus(),
     }), [writing, editable]);

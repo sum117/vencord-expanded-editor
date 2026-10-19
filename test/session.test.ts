@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { chooseOpening, derive, type EditorState, initialState, keptText, keyAction, keyHint, KEYMAP, reduce } from "../session";
+import { decideOpening, derive, DRAFT_CAP, type EditorState, initialState, keptText, keyAction, keyHint, KEYMAP, reduce } from "../session";
 import { planMessages } from "../split";
 import { stats } from "../text";
 
@@ -77,11 +77,40 @@ test("stats count words, characters and reading time", () => {
     assert.equal(stats("w ".repeat(460)).readingMinutes, 2);
 });
 
-test("the full copy reopens only while the chat box holds its cut-short start", () => {
-    const full = "a".repeat(4500) + "tail";
-    assert.equal(chooseOpening("a".repeat(4500), full), full);
-    assert.equal(chooseOpening("a".repeat(4500), undefined), "a".repeat(4500));
-    assert.equal(chooseOpening("edited in the chat box", full), "edited in the chat box");
-    assert.equal(chooseOpening("", full), "", "an emptied chat box is not resurrected");
-    assert.equal(chooseOpening(full, full), full);
+const entry = (text: string) => ({ text, savedAt: 1_792_450_000_000 });
+
+test("no journal, or a journal equal to the chat box, opens the chat box quietly", () => {
+    assert.deepEqual(decideOpening("hello", undefined), { text: "hello", restored: null, journalRedundant: false });
+    assert.deepEqual(decideOpening("hello", entry("hello")), { text: "hello", restored: null, journalRedundant: true });
+});
+
+test("an empty chat box restores the journal without offering the empty text", () => {
+    assert.deepEqual(decideOpening("", entry("lost after a crash")), {
+        text: "lost after a crash",
+        restored: { savedAt: 1_792_450_000_000, chatBox: null },
+        journalRedundant: false,
+    });
+});
+
+test("a chat box cut short at Discord's cap opens the full journal without a notice", () => {
+    const full = "a".repeat(DRAFT_CAP) + " and the rest";
+    assert.deepEqual(decideOpening("a".repeat(DRAFT_CAP), entry(full)), { text: full, restored: null, journalRedundant: false });
+});
+
+test("a chat box holding an older start restores the journal, with nothing to swap back to", () => {
+    const opening = decideOpening("The rain had", entry("The rain had not stopped"));
+    assert.equal(opening.text, "The rain had not stopped");
+    assert.deepEqual(opening.restored, { savedAt: 1_792_450_000_000, chatBox: null });
+});
+
+test("a different chat box restores the journal and offers the chat box text", () => {
+    const opening = decideOpening("typed in the chat box", entry("written in the editor"));
+    assert.equal(opening.text, "written in the editor");
+    assert.deepEqual(opening.restored, { savedAt: 1_792_450_000_000, chatBox: "typed in the chat box" });
+    assert.equal(opening.journalRedundant, false);
+});
+
+test("dismissing the restore notice clears it", () => {
+    const s = initialState("c", "x", { savedAt: 1, chatBox: "y" });
+    assert.equal(reduce(s, { type: "restored/dismiss" }).restored, null);
 });

@@ -575,6 +575,14 @@
     color: var(--text-feedback-critical);
 }
 
+.vc-ee-notice[data-tone="quiet"] {
+    background: var(--background-mod-subtle);
+}
+
+.vc-ee-notice[data-tone="quiet"] .vc-ee-notice-text {
+    color: var(--text-muted);
+}
+
 .vc-ee-notice-reason {
     color: var(--text-muted);
 }

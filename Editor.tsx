@@ -13,7 +13,7 @@ import { classes } from "@utils/misc";
 import { React, useEffect, useMemo, useRef } from "@webpack/common";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 
-import { CalmIcon, cl, FailedNotice, GoalPicker, IconButton, Meter, RecentIcon, ReplyChip, Segmented, SendButton, Status, Toolbar, TypePicker, Whisper } from "./chrome";
+import { CalmIcon, cl, FailedNotice, GoalPicker, IconButton, Meter, RecentIcon, ReplyChip, RestoredNotice, Segmented, SendButton, Status, Toolbar, TypePicker, Whisper } from "./chrome";
 import { Column, type ColumnHandle } from "./Column";
 import { quoteOf } from "./format";
 import { goalCrossed, parseGoalChoice } from "./goals";
@@ -79,6 +79,16 @@ export function Editor({ session, snapshot }: { session: Session; snapshot: Snap
         }
         setView("write");
         setTimeout(() => column.current?.insertBlock(block));
+    }
+
+    function swapToChatBox() {
+        const chatBox = state.restored?.chatBox;
+        if (chatBox == null) return;
+        if (state.view !== "write") setView("write");
+        setTimeout(() => {
+            column.current?.replaceAll(chatBox);
+            session.dispatch({ type: "restored/dismiss" });
+        });
     }
 
     function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
@@ -174,8 +184,10 @@ export function Editor({ session, snapshot }: { session: Session; snapshot: Snap
                 <Whisper words={derived.stats.words} progress={progress} flash={calmFlash} entered={calmEntries.current.count} />
             ) : (
                 <footer className={classes(cl("footer"), cl("bar"))}>
-                    {state.send.phase === "failed" && (
+                    {state.send.phase === "failed" ? (
                         <FailedNotice send={state.send} onRetry={() => session.send()} onDismiss={() => session.dispatch({ type: "send/dismiss" })} />
+                    ) : state.restored && (
+                        <RestoredNotice restored={state.restored} onUseChatBox={swapToChatBox} onDismiss={() => session.dispatch({ type: "restored/dismiss" })} />
                     )}
                     <div className={cl("footer-start")}>
                         <Status derived={derived} />

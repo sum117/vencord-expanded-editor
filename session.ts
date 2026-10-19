@@ -42,6 +42,8 @@ export interface EditorState {
     readonly acknowledgedGoal: number | null;
     /** Bumped on each audible ("Goal reached") acknowledgement; keys the calm flash. */
     readonly goalFlash: number;
+    /** Set while the "Restored your text" notice is up. */
+    readonly restored: Restored | null;
 }
 
 export type EditorAction =
@@ -57,18 +59,51 @@ export type EditorAction =
     | { readonly type: "send/fail"; readonly reason: string; }
     /** text := "". The session closes next. */
     | { readonly type: "send/done"; }
-    | { readonly type: "send/dismiss"; };
+    | { readonly type: "send/dismiss"; }
+    | { readonly type: "restored/dismiss"; };
 
-/**
- * Which text an editor opens with. Our full copy wins only while the chat box
- * still holds exactly its cut-short start; any other chat-box text is newer.
- */
-export function chooseOpening(chatBox: string, full: string | undefined): string {
-    return full !== undefined && chatBox !== "" && full !== chatBox && full.startsWith(chatBox) ? full : chatBox;
+/** Discord's DraftStore cuts a saved draft at this length (read back live). */
+export const DRAFT_CAP = 4500;
+
+/** The editor's own copy of a draft, written on every draft write. */
+export interface JournalEntry {
+    readonly text: string;
+    readonly savedAt: number;
 }
 
-export function initialState(channelId: string, text: string): EditorState {
-    return { channelId, text, view: "write", calm: false, send: { phase: "idle" }, acknowledgedGoal: null, goalFlash: 0 };
+/** Opened from the journal instead of the chat box. `chatBox` is set when swapping back to it is worth offering. */
+export interface Restored {
+    readonly savedAt: number;
+    readonly chatBox: string | null;
+}
+
+export interface Opening {
+    readonly text: string;
+    /** Null when there is nothing to tell the writer. */
+    readonly restored: Restored | null;
+    /** The journal says nothing the chat box doesn't. */
+    readonly journalRedundant: boolean;
+}
+
+/**
+ * Which text an editor opens with. Discord persists drafts 8-20 s after a
+ * write, so after a crash the journal can be newer than the chat box; any
+ * difference opens the journal. The chat box holding exactly the journal's
+ * first DRAFT_CAP characters is the routine long-post case, not a restore.
+ */
+export function decideOpening(chatBox: string, journal: JournalEntry | undefined): Opening {
+    if (!journal || journal.text === chatBox) return { text: chatBox, restored: null, journalRedundant: !!journal };
+    const cutOff = chatBox !== "" && journal.text.startsWith(chatBox);
+    if (cutOff && chatBox.length === DRAFT_CAP) return { text: journal.text, restored: null, journalRedundant: false };
+    return {
+        text: journal.text,
+        restored: { savedAt: journal.savedAt, chatBox: chatBox === "" || cutOff ? null : chatBox },
+        journalRedundant: false,
+    };
+}
+
+export function initialState(channelId: string, text: string, restored: Restored | null = null): EditorState {
+    return { channelId, text, view: "write", calm: false, send: { phase: "idle" }, acknowledgedGoal: null, goalFlash: 0, restored };
 }
 
 export function reduce(state: EditorState, action: EditorAction): EditorState {
@@ -106,6 +141,8 @@ export function reduce(state: EditorState, action: EditorAction): EditorState {
             return send.phase === "sending" ? { ...state, text: "", send: { phase: "idle" } } : state;
         case "send/dismiss":
             return send.phase === "failed" ? { ...state, send: { phase: "idle" } } : state;
+        case "restored/dismiss":
+            return state.restored ? { ...state, restored: null } : state;
     }
 }
 

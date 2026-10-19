@@ -15,7 +15,7 @@ import type { ReactNode } from "react";
 import { type FormatId, FORMATS, type FormatSpec } from "./format";
 import type { GoalChoice, GoalProgress, GoalSlot, WordGoals } from "./goals";
 import type { ReplyTarget } from "./ports";
-import type { Derived, SendState } from "./session";
+import type { Derived, Restored, SendState } from "./session";
 import { type FaceId, FACES, FONT_SIZES } from "./settings";
 import { sendLabel } from "./split";
 import { formatCount, formatReadingTime } from "./text";
@@ -304,6 +304,24 @@ export function Whisper({ words, progress, flash, entered }: { words: number; pr
             <BaseText tag="span" size="xs" defaultColor={false} className={cl("whisper-count")} data-wait={flash > 0 ? "goal" : "hint"} key={`c${flash}-${entered}`}>{count}</BaseText>
             {flash > 0 && <BaseText tag="span" size="xs" defaultColor={false} className={cl("whisper-goal")} key={`g${flash}`}>Goal reached · {formatCount(words)} words</BaseText>}
             <BaseText tag="span" size="xs" defaultColor={false} className={cl("whisper-hint")} key={`h${entered}`}>Esc leaves calm</BaseText>
+        </div>
+    );
+}
+
+function formatSavedAt(savedAt: number): string {
+    const at = new Date(savedAt);
+    const time = at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return at.toDateString() === new Date().toDateString() ? time : `${at.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+}
+
+export function RestoredNotice({ restored, onUseChatBox, onDismiss }: { restored: Restored; onUseChatBox(): void; onDismiss(): void; }): ReactNode {
+    return (
+        <div className={cl("notice")} data-tone="quiet" role="status">
+            <BaseText tag="span" size="sm" defaultColor={false} className={cl("notice-text")}>
+                Restored your text from {formatSavedAt(restored.savedAt)}
+            </BaseText>
+            {restored.chatBox !== null && <TextButton variant="primary" onClick={onUseChatBox}>Use chat box text instead</TextButton>}
+            <TextButton variant="secondary" onClick={onDismiss}>Dismiss</TextButton>
         </div>
     );
 }

@@ -19,7 +19,7 @@ import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { cl } from "./chrome";
 import { Editor } from "./Editor";
 import { draft, failureReason, messageLimit, sendChunk, slowmodeWaitMs } from "./ports";
-import { type EditorAction, type EditorState, escapeIntent, initialState, keptText, reduce } from "./session";
+import { type EditorAction, type EditorState, escapeIntent, initialState, keptText, type Opening, reduce } from "./session";
 import { planMessages } from "./split";
 
 /** Debounce for draft writes while typing; also the most a hard crash can lose. */
@@ -64,9 +64,10 @@ export function closeExpandedEditor(): Promise<void> {
     return active?.close() ?? Promise.resolve();
 }
 
-function createSession(channelId: string, text: string): Session {
-    let snapshot: Snapshot = { state: initialState(channelId, text), saved: true };
-    let savedText = snapshot.state.text;
+function createSession(channelId: string, opening: Opening): Session {
+    let savedText = draft.read(channelId);
+    const state = initialState(channelId, opening.text, opening.restored);
+    let snapshot: Snapshot = { state, saved: keptText(state) === savedText };
     let timer: ReturnType<typeof setTimeout> | undefined;
     let closed: Promise<void> | null = null;
     let inFlight: Promise<void> = Promise.resolve();
@@ -145,11 +146,14 @@ function createSession(channelId: string, text: string): Session {
                 closeModal(modalKey);
                 await inFlight;
                 flush(true);
+                draft.release(channelId, keptText(snapshot.state));
                 if (active === session) active = null;
             })();
             return closed;
         },
     };
+
+    if (!snapshot.saved) timer = setTimeout(flush, DRAFT_DEBOUNCE_MS);
 
     const modalKey = openModal(
         props => <Root {...props} session={session} />,
