@@ -24,7 +24,7 @@ const attachMenuPatch: NavContextMenuPatchCallback = (children, props: { channel
             id="vc-expanded-editor"
             label="Expanded editor"
             leadingAccessory={{ type: "icon", icon: PencilIcon }}
-            action={() => openExpandedEditor(channelId)}
+            action={() => void openExpandedEditor(channelId)}
         />
     );
 };
@@ -35,7 +35,7 @@ function onGlobalKeyDown(e: KeyboardEvent) {
     const channelId = SelectedChannelStore.getChannelId();
     if (!channelId || !canSendIn(channelId)) return;
     e.preventDefault();
-    openExpandedEditor(channelId);
+    void openExpandedEditor(channelId);
 }
 
 export default definePlugin({

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { derive, type EditorState, initialState, keptText, keyAction, keyHint, KEYMAP, reduce } from "../session";
+import { chooseOpening, derive, type EditorState, initialState, keptText, keyAction, keyHint, KEYMAP, reduce } from "../session";
 import { planMessages } from "../split";
 import { stats } from "../text";
 
@@ -75,4 +75,13 @@ test("stats count words, characters and reading time", () => {
     assert.deepEqual(stats(""), { words: 0, chars: 0, readingMinutes: 0 });
     assert.deepEqual(stats("don't stop — now"), { words: 3, chars: 16, readingMinutes: 1 });
     assert.equal(stats("w ".repeat(460)).readingMinutes, 2);
+});
+
+test("the full copy reopens only while the chat box holds its cut-short start", () => {
+    const full = "a".repeat(4500) + "tail";
+    assert.equal(chooseOpening("a".repeat(4500), full), full);
+    assert.equal(chooseOpening("a".repeat(4500), undefined), "a".repeat(4500));
+    assert.equal(chooseOpening("edited in the chat box", full), "edited in the chat box");
+    assert.equal(chooseOpening("", full), "", "an emptied chat box is not resurrected");
+    assert.equal(chooseOpening(full, full), full);
 });

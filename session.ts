@@ -59,6 +59,14 @@ export type EditorAction =
     | { readonly type: "send/done"; }
     | { readonly type: "send/dismiss"; };
 
+/**
+ * Which text an editor opens with. Our full copy wins only while the chat box
+ * still holds exactly its cut-short start; any other chat-box text is newer.
+ */
+export function chooseOpening(chatBox: string, full: string | undefined): string {
+    return full !== undefined && chatBox !== "" && full !== chatBox && full.startsWith(chatBox) ? full : chatBox;
+}
+
 export function initialState(channelId: string, text: string): EditorState {
     return { channelId, text, view: "write", calm: false, send: { phase: "idle" }, acknowledgedGoal: null, goalFlash: 0 };
 }

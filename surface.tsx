@@ -47,8 +47,16 @@ export interface Session {
 
 let active: Session | null = null;
 
-export function openExpandedEditor(channelId: string): void {
-    active ??= createSession(channelId);
+let opening = false;
+
+export async function openExpandedEditor(channelId: string): Promise<void> {
+    if (active || opening) return;
+    opening = true;
+    try {
+        active = createSession(channelId, await draft.open(channelId));
+    } finally {
+        opening = false;
+    }
 }
 
 /** Plugin stop: closes through the normal path, so the draft is written. */
@@ -56,8 +64,8 @@ export function closeExpandedEditor(): Promise<void> {
     return active?.close() ?? Promise.resolve();
 }
 
-function createSession(channelId: string): Session {
-    let snapshot: Snapshot = { state: initialState(channelId, draft.read(channelId)), saved: true };
+function createSession(channelId: string, text: string): Session {
+    let snapshot: Snapshot = { state: initialState(channelId, text), saved: true };
     let savedText = snapshot.state.text;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let closed: Promise<void> | null = null;

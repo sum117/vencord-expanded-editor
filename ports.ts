@@ -7,6 +7,7 @@
 // Every Discord store, flux action and finder the plugin touches. Lazy exports
 // are read inside function bodies: they are undefined until Discord loads.
 
+import * as DataStore from "@api/DataStore";
 import { sendMessage } from "@utils/discord";
 import type { Message } from "@vencord/discord-types";
 import { findByPropsLazy, findCssClassesLazy, findStoreLazy } from "@webpack";
@@ -15,6 +16,8 @@ import {
     PendingReplyStore, PermissionsBits, PermissionStore, SelectedChannelStore, UserStore, useStateFromStores
 } from "@webpack/common";
 import type { ReactNode } from "react";
+
+import { chooseOpening } from "./session";
 
 const CHANNEL_MESSAGE_DRAFT = 0;
 
@@ -30,18 +33,40 @@ const SlowmodeStore: { getSlowmodeCooldownGuess(channelId: string, type?: number
 const markupClasses = findCssClassesLazy("markup", "codeContainer");
 const messageClasses = findCssClassesLazy("messageContent", "markupRtl");
 
+const overflowKey = (channelId: string) => `ExpandedEditor:overflow:${channelId}`;
+/** Channels with a stored overflow copy, so short drafts don't touch IndexedDB. */
+const overflowing = new Set<string>();
+let overflowWrites = Promise.resolve();
+
+function queueOverflow(write: () => Promise<void>) {
+    overflowWrites = overflowWrites.then(write, write).catch(() => { });
+}
+
 /**
  * Discord's chat-input draft. `saveDraft` updates the store and the mounted
  * chat box at once, and Discord persists it, so it is both the hand-off and
  * the crash copy. Never `changeDraft`: that leaves the visible input stale.
+ * Discord cuts drafts at 4,500 characters (read back live), so a longer text
+ * also keeps a full copy in Vencord's DataStore until it fits again.
  */
 export const draft = {
-    read(channelId: string): string {
-        return DraftStore.getDraft(channelId, CHANNEL_MESSAGE_DRAFT) ?? "";
+    /** The text to open with: the chat box's draft, or our full copy when the chat box holds it cut short. */
+    async open(channelId: string): Promise<string> {
+        const chatBox = DraftStore.getDraft(channelId, CHANNEL_MESSAGE_DRAFT) ?? "";
+        const full = await DataStore.get<string>(overflowKey(channelId)).catch(() => undefined);
+        if (typeof full === "string") overflowing.add(channelId);
+        return chooseOpening(chatBox, full);
     },
     write(channelId: string, text: string) {
         if (text === "") DraftActions.clearDraft(channelId, CHANNEL_MESSAGE_DRAFT);
         else DraftActions.saveDraft(channelId, text, CHANNEL_MESSAGE_DRAFT);
+        const kept = DraftStore.getDraft(channelId, CHANNEL_MESSAGE_DRAFT) ?? "";
+        if (kept !== text) {
+            overflowing.add(channelId);
+            queueOverflow(() => DataStore.set(overflowKey(channelId), text));
+        } else if (overflowing.delete(channelId)) {
+            queueOverflow(() => DataStore.del(overflowKey(channelId)));
+        }
     },
 };
 
