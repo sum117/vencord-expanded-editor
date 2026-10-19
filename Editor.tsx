@@ -177,7 +177,7 @@ export function Editor({ session, snapshot }: { session: Session; snapshot: Snap
             />
             {prefs.recentOpen && !state.calm && (
                 <ErrorBoundary noop>
-                    <RecentPanel channelId={state.channelId} onQuote={quote} />
+                    <RecentPanel channelId={state.channelId} canQuote={!sending} onQuote={quote} />
                 </ErrorBoundary>
             )}
             {state.calm ? (

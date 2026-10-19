@@ -16,7 +16,7 @@ import { messageMarkupClass, type RecentMessage, renderMarkdown, useRecentMessag
 
 const RECENT_COUNT = 20;
 
-export function RecentPanel({ channelId, onQuote }: { channelId: string; onQuote(message: RecentMessage): void; }): ReactNode {
+export function RecentPanel({ channelId, canQuote, onQuote }: { channelId: string; canQuote: boolean; onQuote(message: RecentMessage): void; }): ReactNode {
     const messages = useRecentMessages(channelId, RECENT_COUNT);
     const scroller = useRef<HTMLDivElement>(null);
     const markup = messageMarkupClass();
@@ -38,7 +38,7 @@ export function RecentPanel({ channelId, onQuote }: { channelId: string; onQuote
                             <ErrorBoundary noop>
                                 <span className={cl("recent-time")}><Timestamp timestamp={m.timestamp} compact={false} isInline={false} /></span>
                             </ErrorBoundary>
-                            <TextButton variant="secondary" className={cl("recent-quote")} onClick={() => onQuote(m)}>Quote</TextButton>
+                            <TextButton variant="secondary" className={cl("recent-quote")} disabled={!canQuote} onClick={() => onQuote(m)}>Quote</TextButton>
                         </div>
                         <div className={classes(markup, cl("recent-body"))}>{renderMarkdown(m.content, channelId)}</div>
                     </article>
