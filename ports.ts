@@ -99,7 +99,8 @@ export function messageLimit(): number {
 export function canSendIn(channelId: string): boolean {
     const channel = ChannelStore.getChannel(channelId);
     if (!channel) return false;
-    return channel.isPrivate() || PermissionStore.can(PermissionsBits.SEND_MESSAGES, channel);
+    const permission = channel.isThread() ? PermissionsBits.SEND_MESSAGES_IN_THREADS : PermissionsBits.SEND_MESSAGES;
+    return channel.isPrivate() || PermissionStore.can(permission, channel);
 }
 
 /** "#general", "@someone", or the thread's name. */
