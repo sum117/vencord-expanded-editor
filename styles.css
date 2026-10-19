@@ -1,6 +1,10 @@
+/* Painted only from Discord tokens; every token here was read live in dark and light. */
+
 .vc-ee-root {
     position: fixed;
     inset: 0;
+    /* Discord's layer container disables pointer events; its own modals turn them back on. */
+    pointer-events: auto;
     background: var(--background-base-lower);
     color: var(--text-default);
     font-family: var(--font-primary);
@@ -16,15 +20,23 @@
     height: 100%;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "header header"
+        "column aside"
+        "footer footer";
 }
 
+/* ---- header ---- */
+
 .vc-ee-header {
+    grid-area: header;
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     min-height: 48px;
-    padding: 0 16px;
+    padding: 0 12px 0 16px;
     border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -33,6 +45,7 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
+    flex: 1 1 auto;
 }
 
 .vc-ee-header-icon {
@@ -47,12 +60,273 @@
     white-space: nowrap;
 }
 
-.vc-ee-header-end {
-    margin-inline-start: auto;
+.vc-ee-header-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+}
+
+.vc-ee-toolbar-slot[data-hidden] {
+    visibility: hidden;
+}
+
+.vc-ee-toolbar,
+.vc-ee-toolbar-group {
+    display: flex;
+    align-items: center;
+}
+
+.vc-ee-toolbar-group + .vc-ee-toolbar-group {
+    margin-inline-start: 5px;
+    padding-inline-start: 5px;
+    border-inline-start: 1px solid var(--border-subtle);
+}
+
+.vc-ee-icon-button {
+    color: var(--interactive-icon-default);
+}
+
+.vc-ee-icon-button:hover,
+.vc-ee-icon-button[aria-pressed="true"] {
+    color: var(--interactive-icon-hover);
+}
+
+.vc-ee-icon-button[aria-pressed="true"] {
+    background-color: var(--background-mod-normal);
+}
+
+.vc-ee-glyph {
+    font-family: var(--font-primary);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.vc-ee-glyph[data-format="italic"] { font-style: italic; font-family: Georgia, serif; font-weight: 500; }
+.vc-ee-glyph[data-format="underline"] { text-decoration: underline; text-underline-offset: 2px; }
+.vc-ee-glyph[data-format="strike"] { text-decoration: line-through; }
+.vc-ee-glyph[data-format="code"] { font-family: var(--font-code); }
+.vc-ee-glyph[data-format="subtext"] { font-size: 12px; }
+.vc-ee-glyph[data-format="quote"] { font-family: Georgia, serif; font-size: 22px; transform: translateY(4px); }
+.vc-ee-glyph[data-format="list"] { font-size: 20px; }
+
+/* ---- segmented control ---- */
+
+.vc-ee-segmented {
+    display: inline-flex;
+    padding: 2px;
+    gap: 2px;
+    border-radius: var(--radius-sm);
+    background: var(--background-mod-subtle);
+}
+
+.vc-ee-segment {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: calc(var(--radius-sm) - 2px);
+    background: none;
+    color: var(--text-muted);
+    font-family: var(--font-primary);
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+
+.vc-ee-segmented[data-size="xs"] .vc-ee-segment {
+    height: 22px;
+    padding: 0 8px;
+    font-size: 12px;
+}
+
+.vc-ee-segment:hover {
+    color: var(--text-default);
+}
+
+.vc-ee-segment[aria-checked="true"] {
+    background: var(--background-mod-strong);
+    color: var(--text-strong);
+}
+
+.vc-ee-segment:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: -2px;
+}
+
+/* ---- type picker ---- */
+
+.vc-ee-type-picker {
+    position: relative;
+}
+
+.vc-ee-type-panel {
+    position: absolute;
+    z-index: 2;
+    top: calc(100% + 8px);
+    right: 0;
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--background-surface-higher, var(--card-background-default));
+    box-shadow: var(--shadow-high);
+    animation: vc-ee-fade-in 120ms ease-out;
+}
+
+.vc-ee-panel-label {
+    color: var(--text-muted);
+}
+
+.vc-ee-panel-label:not(:first-child) {
+    margin-top: 4px;
+}
+
+.vc-ee-face-option {
+    font-size: 15px;
+}
+
+.vc-ee-size-row {
     display: flex;
     align-items: center;
     gap: 8px;
 }
+
+.vc-ee-size-value {
+    min-width: 48px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- column ---- */
+
+.vc-ee-scroller {
+    grid-area: column;
+    overflow-y: auto;
+    /* Both edges, so the centred column doesn't shift when the scrollbar appears. */
+    scrollbar-gutter: stable both-edges;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thin-thumb, var(--background-mod-strong)) transparent;
+    cursor: text;
+    outline: none;
+}
+
+.vc-ee-root:focus {
+    outline: none;
+}
+
+.vc-ee-column {
+    box-sizing: border-box;
+    inline-size: min(var(--vc-ee-measure), 100% - 64px);
+    margin-inline: auto;
+    padding-block: 48px 35vh;
+    font-family: var(--vc-ee-font);
+    font-size: var(--vc-ee-size);
+    line-height: var(--vc-ee-leading);
+    color: var(--text-default);
+    cursor: auto;
+}
+
+.vc-ee-input {
+    display: block;
+    box-sizing: border-box;
+    inline-size: 100%;
+    min-block-size: 40vh;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    resize: none;
+    overflow: hidden;
+    field-sizing: content;
+    background: none;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    overflow-wrap: break-word;
+    caret-color: var(--text-strong);
+    animation: vc-ee-fade-in 160ms ease-out;
+}
+
+.vc-ee-input[hidden] {
+    display: none;
+}
+
+.vc-ee-input::placeholder {
+    color: var(--text-subtle);
+}
+
+.vc-ee-input::selection {
+    background: var(--background-mod-strong);
+}
+
+.vc-ee-input[readonly] {
+    color: var(--text-muted);
+}
+
+.vc-ee-preview {
+    animation: vc-ee-fade-in 160ms ease-out;
+}
+
+.vc-ee-preview-empty {
+    margin: 0;
+    color: var(--text-subtle);
+}
+
+/* Discord's markup classes sit on the same element; the doubled class wins over their rem sizes. */
+.vc-ee-column .vc-ee-prose.vc-ee-prose {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    overflow-wrap: break-word;
+}
+
+.vc-ee-message {
+    position: relative;
+}
+
+.vc-ee-message + .vc-ee-message {
+    margin-top: calc(var(--vc-ee-leading) * 1em);
+}
+
+.vc-ee-message + .vc-ee-message::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: calc(var(--vc-ee-leading) * -0.5em);
+    border-top: 1px dashed var(--border-normal, var(--border-subtle));
+}
+
+.vc-ee-message-label {
+    position: absolute;
+    inset-inline-end: 0;
+    top: calc(var(--vc-ee-leading) * -0.5em);
+    transform: translateY(-50%);
+    display: flex;
+    gap: 6px;
+    padding-inline-start: 8px;
+    background: var(--background-base-lower);
+    color: var(--text-subtle);
+    font-family: var(--font-primary);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.vc-ee-message-cut {
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* ---- crash ---- */
 
 .vc-ee-crash {
     display: grid;
@@ -62,8 +336,20 @@
     color: var(--text-muted);
 }
 
+/* ---- motion ---- */
+
+@keyframes vc-ee-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .vc-ee-root {
+    .vc-ee-root,
+    .vc-ee-input,
+    .vc-ee-preview,
+    .vc-ee-type-panel,
+    .vc-ee-segment {
         transition: none;
+        animation: none;
     }
 }

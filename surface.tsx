@@ -13,8 +13,8 @@
 import { Button } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
 import type { RenderModalProps } from "@vencord/discord-types";
-import { closeModal, openModal, React } from "@webpack/common";
-import type { KeyboardEvent, ReactNode } from "react";
+import { closeModal, openModal, React, useEffect, useRef } from "@webpack/common";
+import type { KeyboardEvent, ReactNode, RefObject } from "react";
 
 import { cl } from "./chrome";
 import { Editor } from "./Editor";
@@ -70,10 +70,11 @@ function createSession(channelId: string): Session {
         listeners.forEach(l => l());
     };
 
-    const flush = () => {
+    /** `force` rewrites even an unchanged text: on close, in case anything else touched the draft. */
+    const flush = (force = false) => {
         clearTimeout(timer);
         const text = keptText(snapshot.state);
-        if (text !== savedText) {
+        if (force || text !== savedText) {
             draft.write(channelId, text);
             savedText = text;
         }
@@ -135,7 +136,7 @@ function createSession(channelId: string): Session {
                 flush();
                 closeModal(modalKey);
                 await inFlight;
-                flush();
+                flush(true);
                 if (active === session) active = null;
             })();
             return closed;
@@ -171,10 +172,40 @@ function trapTab(e: KeyboardEvent<HTMLDivElement>) {
     }
 }
 
+/**
+ * Discord moves focus into the chat box behind us on some draft writes (a
+ * DRAFT_CLEAR focuses it), and keys typed there would go to the channel.
+ * While the surface is up, a text field outside it never keeps focus.
+ */
+function useFocusGuard(root: RefObject<HTMLDivElement | null>, active: boolean) {
+    useEffect(() => {
+        if (!active) return;
+        let last: HTMLElement | null = null;
+        const onFocusIn = (e: FocusEvent) => {
+            const el = root.current;
+            const target = e.target as HTMLElement;
+            if (!el) return;
+            if (el.contains(target)) {
+                last = target;
+                return;
+            }
+            if (!target.isContentEditable && !target.matches("textarea, input")) return;
+            const back = last && el.contains(last) && last.getClientRects().length ? last : el;
+            back.focus({ preventScroll: true });
+        };
+        document.addEventListener("focusin", onFocusIn, true);
+        return () => document.removeEventListener("focusin", onFocusIn, true);
+    }, [active]);
+}
+
 function Root({ session, transitionState }: RenderModalProps & { session: Session; }): ReactNode {
     const snapshot = React.useSyncExternalStore(session.subscribe, session.getSnapshot);
+    const root = useRef<HTMLDivElement>(null);
+    useFocusGuard(root, transitionState < 2);
     return (
         <div
+            ref={root}
+            tabIndex={-1}
             className={cl("root")}
             role="dialog"
             aria-modal="true"
