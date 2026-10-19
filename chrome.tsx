@@ -249,13 +249,13 @@ function formatClock(ms: number): string {
 
 /** Re-renders every quarter second while `until` is in the future. */
 function useCountdown(until: number | null): number {
-    const [now, setNow] = useState(Date.now);
+    const [, tick] = useState(0);
     useEffect(() => {
         if (until === null) return;
-        const t = setInterval(() => setNow(Date.now()), 250);
+        const t = setInterval(() => tick(n => n + 1), 250);
         return () => clearInterval(t);
     }, [until]);
-    return until === null ? 0 : until - now;
+    return until === null ? 0 : until - Date.now();
 }
 
 export function SendButton({ send, messages, onSend }: { send: SendState; messages: number; onSend(): void; }): ReactNode {
