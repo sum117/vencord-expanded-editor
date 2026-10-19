@@ -66,6 +66,7 @@ test("heading cycles h1, h2, h3, plain, and replaces a bullet", () => {
 test("a line format on an empty line puts the caret after the prefix", () => {
     assert.equal(fmt("one\n|", "list"), "one\n- |");
     assert.equal(fmt("|", "subtext"), "-# |");
+    assert.equal(fmt("|\nsecond", "heading"), "# |\nsecond");
 });
 
 test("quote toggles every touched line, skips blank ones, and keeps the selection on the same words", () => {

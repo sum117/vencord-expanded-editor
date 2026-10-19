@@ -175,7 +175,7 @@ export function printLine(line: ParsedLine): string {
 const NEXT_HEADING: Record<LineKind, LineKind> = { plain: "h1", subtext: "h1", list: "h1", h1: "h2", h2: "h3", h3: "plain" };
 
 function toggleLines(text: string, selection: Selection, id: LineFormatId): Edit {
-    const regionStart = text.lastIndexOf("\n", selection.start - 1) + 1;
+    const regionStart = selection.start === 0 ? 0 : text.lastIndexOf("\n", selection.start - 1) + 1;
     const lastAt = selection.end > selection.start && text[selection.end - 1] === "\n" ? selection.end - 1 : selection.end;
     const nl = text.indexOf("\n", lastAt);
     const regionEnd = nl === -1 ? text.length : nl;
