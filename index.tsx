@@ -53,7 +53,6 @@ export default definePlugin({
     },
     stop() {
         document.removeEventListener("keydown", onGlobalKeyDown);
-        // Closes the surface and writes the draft synchronously, before managedStyle goes.
         void closeExpandedEditor();
     },
 });

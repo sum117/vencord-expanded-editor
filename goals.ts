@@ -6,7 +6,6 @@
 
 export type WordGoals = readonly [short: number, medium: number, long: number];
 export type GoalSlot = 0 | 1 | 2;
-/** `null` is "no goal". */
 export type GoalChoice = GoalSlot | null;
 
 export const GOAL_DEFAULTS: WordGoals = [1000, 2000, 2500];
@@ -17,7 +16,6 @@ export const GOAL_STEP = 50;
 export interface GoalProgress {
     readonly target: number;
     readonly words: number;
-    /** 0..1, clamped. */
     readonly ratio: number;
     readonly reached: boolean;
 }
@@ -28,7 +26,6 @@ function settleOne(value: unknown, fallback: number): number {
     return Math.min(GOAL_MAX, Math.max(GOAL_MIN, snapped));
 }
 
-/** Clamp, snap to the step and sort, so slot 0 is always the shortest. Junk takes the slot's default. */
 export function settleGoals(raw: readonly unknown[]): WordGoals {
     const [a, b, c] = GOAL_DEFAULTS.map((d, i) => settleOne(raw[i], d)).sort((x, y) => x - y);
     return [a, b, c];

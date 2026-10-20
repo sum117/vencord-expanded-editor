@@ -28,7 +28,6 @@ export interface SegmentedOption<T> {
     readonly title?: string;
 }
 
-/** One control for every either/or: Write|Preview, the typeface, the goal. */
 export function Segmented<T extends string | number | null>(props: {
     label: string;
     value: T;
@@ -92,7 +91,6 @@ function FormatGlyph({ spec }: { spec: FormatSpec; }): ReactNode {
     return <span className={cl("glyph")} data-format={spec.id} aria-hidden="true">{spec.glyph}</span>;
 }
 
-/** FORMATS in groups split by hairlines. Mouse down keeps the textarea's selection. */
 export function Toolbar({ onFormat, disabled }: { onFormat(id: FormatId): void; disabled: boolean; }): ReactNode {
     const groups = [0, 1, 2].map(g => FORMATS.filter(f => f.group === g));
     return (
@@ -117,7 +115,6 @@ export function Toolbar({ onFormat, disabled }: { onFormat(id: FormatId): void; 
     );
 }
 
-/** "Aa" button with a small panel: typeface and size. Esc and outside clicks close the panel only. */
 export function TypePicker(props: { face: FaceId; size: number; onFace(face: FaceId): void; onSize(size: number): void; }): ReactNode {
     const [open, setOpen] = useState(false);
     const box = useRef<HTMLDivElement>(null);
@@ -190,7 +187,6 @@ export function RecentIcon(): ReactNode {
     );
 }
 
-/** 2px goal meter on a bar's lower edge; one glow when the goal is reached. */
 export function Meter({ progress }: { progress: GoalProgress; }): ReactNode {
     return (
         <div
@@ -223,7 +219,6 @@ export function GoalPicker({ goals, choice, onChange, size = "xs" }: { goals: Wo
     );
 }
 
-/** "1,284 words · 3,412 / 4,000 · 6 min read"; past the limit the count of messages replaces the warning. */
 export function Status({ derived }: { derived: Derived; }): ReactNode {
     const { stats, budget } = derived;
     return (
@@ -247,7 +242,6 @@ function formatClock(ms: number): string {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/** Re-renders every quarter second while `until` is in the future. */
 function useCountdown(until: number | null): number {
     const [, tick] = useState(0);
     useEffect(() => {
@@ -296,7 +290,6 @@ export function ReplyChip({ reply, onCancel }: { reply: ReplyTarget; onCancel():
     );
 }
 
-/** Calm's corner line: the count, the goal once, or how to leave. Keyed spans replay their CSS fade. */
 export function Whisper({ words, progress, flash, entered }: { words: number; progress: GoalProgress | null; flash: number; entered: number; }): ReactNode {
     const count = progress ? `${formatCount(words)} / ${formatCount(progress.target)} words` : `${formatCount(words)} ${words === 1 ? "word" : "words"}`;
     return (

@@ -15,15 +15,9 @@ export interface Face {
     readonly label: string;
     readonly stack: string;
     readonly leading: number;
-    /**
-     * Line length. Measured live at 17px with a 71-character English ruler:
-     * gg sans 30.4em, Noto Serif 34.1em, iA Writer Quattro 38.7em, gg mono
-     * 42.6em; each value below holds about 70 characters a line.
-     */
     readonly measure: string;
 }
 
-/** One table drives the setting, the in-editor picker and the column's CSS variables. */
 export const FACES: Readonly<Record<FaceId, Face>> = {
     discord: {
         label: "Discord",

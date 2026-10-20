@@ -4,10 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// The writing column. The DOM owns the caret and the undo history, the session
-// owns the text; they meet only at the textarea's input event. Every
-// programmatic edit goes through commitEdit, so Ctrl+Z undoes it.
-
 import { BaseText } from "@components/BaseText";
 import { classes } from "@utils/misc";
 import { React, useEffect, useLayoutEffect, useRef } from "@webpack/common";
@@ -22,7 +18,6 @@ import type { Boundary, MessagePlan } from "./split";
 export interface ColumnHandle {
     format(id: FormatId): void;
     insertBlock(block: string): void;
-    /** Replaces the whole text as one undoable edit. */
     replaceAll(text: string): void;
     focus(): void;
 }
@@ -30,13 +25,11 @@ export interface ColumnHandle {
 export interface ColumnProps {
     ref: Ref<ColumnHandle>;
     state: EditorState;
-    /** The plan the preview shows (deferred while typing). */
     plan: MessagePlan;
     placeholder: string;
     onInput(text: string): void;
 }
 
-/** Applies an edit as one native, undoable operation that fires `input` like typing. */
 function commitEdit(el: HTMLTextAreaElement, edit: Edit) {
     const patch = minimalPatch(el.value, edit.text);
     el.focus();
@@ -79,7 +72,6 @@ export function Column({ ref, state, plan, placeholder, onInput }: ColumnProps):
     }), [writing, editable]);
 
     useLayoutEffect(() => {
-        // In preview the textarea is hidden; the scroller takes focus so keys stay inside the surface and arrows scroll.
         if (writing) area.current?.focus({ preventScroll: true });
         else scroller.current?.focus({ preventScroll: true });
     }, [writing]);
@@ -121,7 +113,6 @@ export function Column({ ref, state, plan, placeholder, onInput }: ColumnProps):
     );
 }
 
-/** The caret line's top in px from the textarea's top, measured on a hidden twin that wraps the same way. */
 function caretTop(el: HTMLTextAreaElement, mirror: HTMLDivElement): number {
     const cs = getComputedStyle(el);
     mirror.style.width = `${el.clientWidth}px`;
@@ -135,11 +126,6 @@ function caretTop(el: HTMLTextAreaElement, mirror: HTMLDivElement): number {
     return marker.offsetTop;
 }
 
-/**
- * Calm writing keeps the caret's line at the middle of the screen. Instant
- * scrolling, because a smooth scroll lags a fast typist; a wheel scroll is
- * left alone until the next keystroke or caret move.
- */
 function useTypewriter(scroller: RefObject<HTMLDivElement | null>, area: RefObject<HTMLTextAreaElement | null>, on: boolean) {
     useEffect(() => {
         const sc = scroller.current;
@@ -180,7 +166,6 @@ const CUT_NAMES: Partial<Record<Boundary, string>> = {
     fence: "split inside code",
 };
 
-/** The text as Discord will render it, message by message, in the textarea's exact type and place. */
 function Preview({ plan, channelId }: { plan: MessagePlan; channelId: string; }): ReactNode {
     if (!plan.chunks.length) return <p className={cl("preview-empty")}>Nothing to preview yet.</p>;
     const markup = messageMarkupClass();

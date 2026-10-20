@@ -4,19 +4,16 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-/** A caret or selection in UTF-16 offsets, start <= end. */
 export interface Selection {
     readonly start: number;
     readonly end: number;
 }
 
-/** A transform's result: the next text and where the selection lands. */
 export interface Edit {
     readonly text: string;
     readonly selection: Selection;
 }
 
-/** Replace [from, to) of the current text with `insert`. */
 export interface Patch {
     readonly from: number;
     readonly to: number;
@@ -32,11 +29,9 @@ export interface FormatSpec {
     readonly glyph: string;
     readonly label: string;
     readonly key?: "b" | "i" | "u";
-    /** Toolbar group; a hairline separates groups. */
     readonly group: 0 | 1 | 2;
 }
 
-/** The one list the toolbar, its tooltips, the shortcuts and applyFormat derive from. */
 export const FORMATS: readonly FormatSpec[] = [
     { id: "bold", glyph: "B", label: "Bold", key: "b", group: 0 },
     { id: "italic", glyph: "I", label: "Italic", key: "i", group: 0 },
@@ -78,11 +73,7 @@ function runAfter(text: string, at: number, ch: string, limit = text.length): nu
     return n;
 }
 
-/**
- * Whether runs of the marker's character on both sides carry the mark. "*"
- * is italic only in an odd run (`**` is bold, `***` is both); doubled markers
- * need a run of at least two.
- */
+/** "*" is italic only in an odd run (`**` is bold, `***` is both). */
 function carries(marker: string, left: number, right: number): boolean {
     const run = Math.min(left, right);
     return marker === "*" ? run % 2 === 1 : run >= marker.length;
@@ -130,7 +121,6 @@ export type LineKind = "plain" | "h1" | "h2" | "h3" | "subtext" | "list";
 export interface ParsedLine {
     readonly quoted: boolean;
     readonly kind: LineKind;
-    /** The text after both prefixes. */
     readonly body: string;
 }
 
@@ -152,7 +142,6 @@ const PARSE_ORDER: readonly (readonly [LineKind, string])[] = [
     ["list", "* "],
 ];
 
-/** Discord allows one quote around one line kind (`> ## Title`, `> - item`); heading, subtext and list exclude each other. */
 export function parseLine(line: string): ParsedLine {
     let rest = line;
     let quoted = false;
@@ -233,7 +222,6 @@ function toggleLines(text: string, selection: Selection, id: LineFormatId): Edit
     };
 }
 
-/** At a line's start (after an optional quote) or after a space, the dash opens a phrase: "— ". */
 function insertDash(text: string, selection: Selection): Edit {
     const before = text.slice(0, selection.start);
     const head = before.slice(before.lastIndexOf("\n") + 1);
@@ -242,7 +230,6 @@ function insertDash(text: string, selection: Selection): Edit {
     return { text: replace(text, selection.start, selection.end, insert), selection: { start: caret, end: caret } };
 }
 
-/** Pure. Pressing the same mark twice returns the original text and selection. */
 export function applyFormat(text: string, selection: Selection, id: FormatId): Edit {
     switch (id) {
         case "bold":
@@ -262,7 +249,6 @@ export function applyFormat(text: string, selection: Selection, id: FormatId): E
     }
 }
 
-/** Replaces the selection with `block` as its own paragraph and opens an empty paragraph after it for the caret. */
 export function insertBlock(text: string, selection: Selection, block: string): Edit {
     const before = text.slice(0, selection.start).replace(/\s+$/, "");
     const after = text.slice(selection.end).replace(/^\s+/, "");
@@ -270,7 +256,6 @@ export function insertBlock(text: string, selection: Selection, block: string): 
     return { text: head + (after ? "\n\n" + after : ""), selection: { start: head.length, end: head.length } };
 }
 
-/** A message quoted into the draft: the author in bold, then the body, every line marked. */
 export function quoteOf(author: string, content: string): string {
     const lines = content.trim().split("\n").map(l => l.trim() ? `> ${l}` : "> ");
     return [`> **${author}**`, ...lines].join("\n");
@@ -279,7 +264,6 @@ export function quoteOf(author: string, content: string): string {
 const isHigh = (c: number) => c >= 0xD800 && c <= 0xDBFF;
 const isLow = (c: number) => c >= 0xDC00 && c <= 0xDFFF;
 
-/** The smallest replacement turning `before` into `after`, never splitting a surrogate pair. */
 export function minimalPatch(before: string, after: string): Patch {
     const max = Math.min(before.length, after.length);
     let p = 0;

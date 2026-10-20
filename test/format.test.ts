@@ -3,7 +3,6 @@ import { test } from "node:test";
 
 import { applyFormat, type Edit, type FormatId, insertBlock, minimalPatch, parseLine, quoteOf } from "../format";
 
-/** "a [b] c" -> text with the selection marked by brackets, or "|" for a caret. */
 function doc(marked: string): Edit {
     const caret = marked.indexOf("|");
     if (caret >= 0) return { text: marked.replace("|", ""), selection: { start: caret, end: caret } };

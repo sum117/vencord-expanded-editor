@@ -4,12 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// One open editor at a time: its session (state outside React, so a close
-// mid-send can wait for the chunk in flight and keep the exact remainder) and
-// the full-viewport surface hosted by Discord's modal layer. The layer gives
-// a custom root no backdrop and no focus, and with onCloseRequest set, Esc
-// asks instead of closing.
-
 import { Button } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
 import type { RenderModalProps } from "@vencord/discord-types";
@@ -22,14 +16,11 @@ import { draft, failureReason, messageLimit, sendChunk, slowmodeWaitMs } from ".
 import { type EditorAction, type EditorState, escapeIntent, initialState, keptText, type Opening, reduce } from "./session";
 import { planMessages } from "./split";
 
-/** Debounce for draft writes while typing; also the most a hard crash can lose. */
 const DRAFT_DEBOUNCE_MS = 300;
-/** Slack added to slowmode waits so the server's clock agrees the cooldown is over. */
 const SLOWMODE_MARGIN_MS = 300;
 
 export interface Snapshot {
     readonly state: EditorState;
-    /** True when Discord's draft holds exactly what the session would keep. */
     readonly saved: boolean;
 }
 
@@ -37,11 +28,8 @@ export interface Session {
     getSnapshot(): Snapshot;
     subscribe(listener: () => void): () => void;
     dispatch(action: EditorAction): void;
-    /** Starts the send loop. Idempotent while sending. */
     send(): void;
-    /** Esc: leave calm, or close. */
     escape(): void;
-    /** Stops any send before its next chunk, closes the surface and writes what is kept. Idempotent. */
     close(): Promise<void>;
 }
 
@@ -59,7 +47,6 @@ export async function openExpandedEditor(channelId: string): Promise<void> {
     }
 }
 
-/** Plugin stop: closes through the normal path, so the draft is written. */
 export function closeExpandedEditor(): Promise<void> {
     return active?.close() ?? Promise.resolve();
 }
@@ -79,7 +66,6 @@ function createSession(channelId: string, opening: Opening): Session {
         listeners.forEach(l => l());
     };
 
-    /** `force` rewrites even an unchanged text: on close, in case anything else touched the draft. */
     const flush = (force = false) => {
         clearTimeout(timer);
         const text = keptText(snapshot.state);
@@ -172,7 +158,7 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 const FOCUSABLE = "button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select, a[href], [tabindex]:not([tabindex='-1'])";
 
-/** Keeps Tab inside the surface; Discord's layer gives a custom root no focus lock. */
+/** Discord's layer gives a custom root no focus lock. */
 function trapTab(e: KeyboardEvent<HTMLDivElement>) {
     const items = [...e.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => el.getClientRects().length > 0);
     if (!items.length) return;
@@ -188,7 +174,6 @@ function trapTab(e: KeyboardEvent<HTMLDivElement>) {
 /**
  * Discord moves focus into the chat box behind us on some draft writes (a
  * DRAFT_CLEAR focuses it), and keys typed there would go to the channel.
- * While the surface is up, a text field outside it never keeps focus.
  */
 function useFocusGuard(root: RefObject<HTMLDivElement | null>, active: boolean) {
     useEffect(() => {
@@ -233,7 +218,6 @@ function Root({ session, transitionState }: RenderModalProps & { session: Sessio
                 if (e.key !== "Escape") e.stopPropagation();
             }}
             onMouseDown={e => {
-                // A press on a bar's bare space keeps the caret where it was instead of dropping focus to the page.
                 const target = e.target as HTMLElement;
                 if (target.closest(`.${cl("bar")}`) && !target.closest(FOCUSABLE)) e.preventDefault();
             }}

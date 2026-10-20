@@ -11,43 +11,28 @@ import { type Stats, stats } from "./text";
 
 export type View = "write" | "preview";
 
-/**
- * The send state machine. The plan is frozen at start and the textarea is
- * read-only while sending, so the plan always describes the text on screen.
- *
- *   idle -start-> sending -chunk/wait*-> (done: text "", session closes)
- *                    \-fail-> failed -input|dismiss-> idle, -start-> sending
- */
 export type SendState =
     | { readonly phase: "idle"; }
     | {
         readonly phase: "sending";
         readonly plan: MessagePlan;
-        /** Chunks confirmed sent. */
         readonly sent: number;
-        /** Epoch ms the next chunk may go (slowmode), or null when it goes now. */
         readonly resumeAt: number | null;
     }
     | { readonly phase: "failed"; readonly sent: number; readonly total: number; readonly reason: string; };
 
 export interface EditorState {
-    /** Bound at open; never follows the selected channel. */
     readonly channelId: string;
-    /** The draft. The only authoritative copy while the editor is open. */
     readonly text: string;
     readonly view: View;
     readonly calm: boolean;
     readonly send: SendState;
-    /** The goal target last acknowledged this session, so each target is acknowledged once. */
     readonly acknowledgedGoal: number | null;
-    /** Bumped on each audible ("Goal reached") acknowledgement; keys the calm flash. */
     readonly goalFlash: number;
-    /** Set while the "Restored your text" notice is up. */
     readonly restored: Restored | null;
 }
 
 export type EditorAction =
-    /** The textarea's value after any edit: typing, paste, toolbar, undo. Ignored while sending. */
     | { readonly type: "input"; readonly text: string; }
     | { readonly type: "view"; readonly view: View; }
     | { readonly type: "calm"; readonly on: boolean; }
@@ -55,9 +40,7 @@ export type EditorAction =
     | { readonly type: "send/start"; readonly plan: MessagePlan; }
     | { readonly type: "send/wait"; readonly until: number; }
     | { readonly type: "send/chunk"; }
-    /** text := the unsent remainder. */
     | { readonly type: "send/fail"; readonly reason: string; }
-    /** text := "". The session closes next. */
     | { readonly type: "send/done"; }
     | { readonly type: "send/dismiss"; }
     | { readonly type: "restored/dismiss"; };
@@ -65,13 +48,11 @@ export type EditorAction =
 /** Discord's DraftStore cuts a saved draft at this length (read back live). */
 export const DRAFT_CAP = 4500;
 
-/** The editor's own copy of a draft, written on every draft write. */
 export interface JournalEntry {
     readonly text: string;
     readonly savedAt: number;
 }
 
-/** Opened from the journal instead of the chat box. `chatBox` is set when swapping back to it is worth offering. */
 export interface Restored {
     readonly savedAt: number;
     readonly chatBox: string | null;
@@ -79,18 +60,10 @@ export interface Restored {
 
 export interface Opening {
     readonly text: string;
-    /** Null when there is nothing to tell the writer. */
     readonly restored: Restored | null;
-    /** The journal says nothing the chat box doesn't. */
     readonly journalRedundant: boolean;
 }
 
-/**
- * Which text an editor opens with. Discord persists drafts 8-20 s after a
- * write, so after a crash the journal can be newer than the chat box; any
- * difference opens the journal. The chat box holding exactly the journal's
- * first DRAFT_CAP characters is the routine long-post case, not a restore.
- */
 export function decideOpening(chatBox: string, journal: JournalEntry | undefined): Opening {
     if (!journal || journal.text === chatBox) return { text: chatBox, restored: null, journalRedundant: !!journal };
     const cutOff = chatBox !== "" && journal.text.startsWith(chatBox);
@@ -146,18 +119,12 @@ export function reduce(state: EditorState, action: EditorAction): EditorState {
     }
 }
 
-/**
- * The text that survives the session: what the chat box and Discord's draft
- * hold. Mid-send that is the unsent remainder, so closing during a slowmode
- * wait never re-posts what already went out.
- */
 export function keptText(state: EditorState): string {
     return state.send.phase === "sending" ? remainderAfter(state.send.plan, state.send.sent) : state.text;
 }
 
 export const isEditable = (state: EditorState) => state.send.phase !== "sending";
 
-/** What Esc means now. Closing mid-send stops before the next chunk and keeps the remainder. */
 export function escapeIntent(state: EditorState): "leaveCalm" | "close" {
     return state.calm ? "leaveCalm" : "close";
 }
@@ -166,7 +133,6 @@ export interface Budget {
     readonly chars: number;
     readonly limit: number;
     readonly messages: number;
-    /** "near" from 90% of the limit while one message; "split" past it. */
     readonly tone: "quiet" | "near" | "split";
 }
 
@@ -195,12 +161,10 @@ export type Command = "send" | "togglePreview" | "toggleCalm";
 export interface KeyBinding {
     readonly command: Command;
     readonly shift: boolean;
-    /** `KeyboardEvent.key`, lowercase for letters. Always with Mod (Ctrl, or Cmd on macOS). */
     readonly key: string;
     readonly hint: string;
 }
 
-/** One list drives the key handler and the footer hints. Esc belongs to the surface. */
 export const KEYMAP: readonly KeyBinding[] = [
     { command: "send", shift: false, key: "Enter", hint: "send" },
     { command: "togglePreview", shift: true, key: "p", hint: "preview" },

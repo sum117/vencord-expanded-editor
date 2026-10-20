@@ -4,9 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// Every Discord store, flux action and finder the plugin touches. Lazy exports
-// are read inside function bodies: they are undefined until Discord loads.
-
 import * as DataStore from "@api/DataStore";
 import { sendMessage } from "@utils/discord";
 import type { Message } from "@vencord/discord-types";
@@ -39,7 +36,6 @@ const JOURNAL_GRACE_MS = 30_000;
 const pendingDeletes = new Map<string, ReturnType<typeof setTimeout>>();
 let journalWrites = Promise.resolve();
 
-/** One chain for every journal write, so a late set can never land after a delete. */
 function queueJournal(write: () => Promise<void>) {
     journalWrites = journalWrites.then(write, write).catch(() => { });
 }
@@ -50,10 +46,10 @@ function parseJournal(raw: unknown): JournalEntry | undefined {
 }
 
 /**
- * Discord's chat-input draft. `saveDraft` updates the store and the mounted
- * chat box at once; never `changeDraft`, which leaves the visible input stale.
- * Discord writes drafts to disk only 8-20 s later and cuts them at 4,500
- * characters, so every write also goes to a journal in Vencord's DataStore.
+ * `saveDraft` updates the store and the mounted chat box at once; never
+ * `changeDraft`, which leaves the visible input stale. Discord writes drafts
+ * to disk only 8-20 s later and cuts them at 4,500 characters, so every write
+ * also goes to a journal in Vencord's DataStore.
  */
 export const draft = {
     read(channelId: string): string {
@@ -74,10 +70,6 @@ export const draft = {
         const entry: JournalEntry = { text, savedAt: Date.now() };
         queueJournal(() => DataStore.set(journalKey(channelId), entry));
     },
-    /**
-     * The session is over. The journal goes once Discord has surely persisted
-     * the draft, unless the chat box holds the text cut short.
-     */
     release(channelId: string, text: string) {
         if (draft.read(channelId) !== text) return;
         clearTimeout(pendingDeletes.get(channelId));
@@ -103,7 +95,6 @@ export function canSendIn(channelId: string): boolean {
     return channel.isPrivate() || PermissionStore.can(permission, channel);
 }
 
-/** "#general", "@someone", or the thread's name. */
 export function channelLabel(channelId: string): string {
     const channel = ChannelStore.getChannel(channelId);
     if (!channel) return "";
@@ -115,11 +106,6 @@ export function channelLabel(channelId: string): string {
     return (channel.isThread() ? "" : "#") + channel.name;
 }
 
-/**
- * How long to wait before the next message may go, in ms. Discord resets its
- * own cooldown guess after each send; the channel's rate limit is the floor
- * after a send. Members who manage messages, channels or threads are exempt.
- */
 export function slowmodeWaitMs(channelId: string, afterSend: boolean): number {
     const channel = ChannelStore.getChannel(channelId);
     const perUser = channel?.rateLimitPerUser ?? 0;
@@ -146,10 +132,6 @@ export function cancelReply(channelId: string) {
     FluxDispatcher.dispatch({ type: "DELETE_PENDING_REPLY", channelId });
 }
 
-/**
- * Sends one message. The first chunk carries the channel's pending reply,
- * which is cleared once it went out. Rejects with Discord's response on failure.
- */
 export async function sendChunk(channelId: string, content: string, first: boolean): Promise<void> {
     const reply = first ? PendingReplyStore.getPendingReply(channelId) : undefined;
     const options = reply ? MessageActions.getSendMessageOptionsForReply(reply) : {};
@@ -157,7 +139,6 @@ export async function sendChunk(channelId: string, content: string, first: boole
     if (reply) cancelReply(channelId);
 }
 
-/** A readable reason from whatever Discord's send rejected with. */
 export function failureReason(error: unknown): string {
     const e = error as { body?: { message?: string; }; err?: { message?: string; }; message?: string; status?: number; } | null;
     return e?.body?.message ?? e?.err?.message ?? e?.message ?? (e?.status ? `HTTP ${e.status}` : "Discord refused the message");
@@ -175,7 +156,6 @@ export function renderMarkdown(text: string, channelId: string): ReactNode {
     });
 }
 
-/** Classes that make rendered markdown look like a message body; empty if Discord renames them. */
 export function messageMarkupClass(): string {
     return [markupClasses.markup, messageClasses.messageContent].filter(Boolean).join(" ");
 }
@@ -192,7 +172,6 @@ export interface RecentMessage {
     readonly content: string;
 }
 
-/** The last `n` messages Discord has loaded for the channel, newest last. */
 export function useRecentMessages(channelId: string, n: number): readonly RecentMessage[] {
     return useStateFromStores([MessageStore], () => {
         const guildId = ChannelStore.getChannel(channelId)?.guild_id;

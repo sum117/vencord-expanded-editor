@@ -1,5 +1,5 @@
 // Vencord's tsconfig rejects ".ts" import suffixes, so the plugin imports "./split";
-// Node needs the extension. Retry unresolved relative specifiers with ".ts".
+// Node needs the extension.
 import { registerHooks } from "node:module";
 
 registerHooks({

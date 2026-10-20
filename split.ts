@@ -4,21 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-/** Cut levels, coarsest first. A finer level is tried only for a unit that alone exceeds the limit. */
 export type CutLevel = "paragraph" | "line" | "sentence" | "word" | "grapheme";
-/** How a chunk is cut from the next one. */
 export type Boundary = CutLevel | "fence" | "end";
 
 export interface Chunk {
-    /** What gets sent. Non-empty, at most `limit` long. */
     readonly content: string;
-    /** [from, to) in the plan's source. Ascending and disjoint across chunks. */
     readonly span: readonly [from: number, to: number];
-    /**
-     * Text the remainder starting at this chunk needs in front to stand alone:
-     * the fence opener when the chunk starts inside a cut code block, or `>>> `
-     * when it continues a block quote.
-     */
     readonly carry: string;
     readonly boundary: Boundary;
 }
@@ -26,13 +17,11 @@ export interface Chunk {
 export interface MessagePlan {
     readonly source: string;
     readonly limit: number;
-    /** Empty for blank text; exactly one chunk when the trimmed text fits. */
     readonly chunks: readonly Chunk[];
 }
 
 interface Span { from: number; to: number; }
 interface Unit extends Span {
-    /** Set for a fenced code block: the info string after the opening backticks. */
     readonly fence?: string;
 }
 
@@ -70,7 +59,6 @@ function lineSpans(source: string, from: number, to: number): Span[] {
     return out;
 }
 
-/** Paragraphs (split on blank lines) and fenced code blocks, which are atomic. */
 function blocks(source: string): Unit[] {
     const out: Unit[] = [];
     let para: Span | null = null;
@@ -191,7 +179,6 @@ class Planner {
         }
     }
 
-    /** A code block longer than the limit: cut between its lines, each piece re-fenced. */
     private packFence(unit: Span, info: string) {
         const { source } = this;
         const open = FENCE + info + "\n";
@@ -249,7 +236,6 @@ export function planMessages(source: string, limit: number): MessagePlan {
     return { source, limit, chunks: planner.finish() };
 }
 
-/** The draft still unsent after `sent` chunks went out: exact source text, never rejoined chunks. */
 export function remainderAfter(plan: MessagePlan, sent: number): string {
     const next = plan.chunks[sent];
     return next ? next.carry + plan.source.slice(next.span[0]) : "";

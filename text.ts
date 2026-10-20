@@ -6,9 +6,7 @@
 
 export interface Stats {
     readonly words: number;
-    /** UTF-16 length, which is what Discord's limit counts. */
     readonly chars: number;
-    /** 0 for no words, else at least 1. */
     readonly readingMinutes: number;
 }
 
