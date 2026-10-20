@@ -8,7 +8,7 @@ import { BaseText } from "@components/BaseText";
 import { TextButton } from "@components/Button";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { classes } from "@utils/misc";
-import { Timestamp, useLayoutEffect, useRef } from "@webpack/common";
+import { Timestamp, useLayoutEffect, useMemo, useRef } from "@webpack/common";
 import type { ReactNode } from "react";
 
 import { cl } from "./chrome";
@@ -20,6 +20,7 @@ export function RecentPanel({ channelId, canQuote, onQuote }: { channelId: strin
     const messages = useRecentMessages(channelId, RECENT_COUNT);
     const scroller = useRef<HTMLDivElement>(null);
     const markup = messageMarkupClass();
+    const bodies = useMemo(() => messages.map(m => renderMarkdown(m.content, channelId)), [messages, channelId]);
 
     useLayoutEffect(() => {
         const el = scroller.current;
@@ -31,7 +32,7 @@ export function RecentPanel({ channelId, canQuote, onQuote }: { channelId: strin
             <BaseText size="xs" weight="semibold" defaultColor={false} className={cl("aside-title")}>Recent messages</BaseText>
             <div ref={scroller} className={cl("aside-scroller")}>
                 {messages.length === 0 && <BaseText size="sm" defaultColor={false} className={cl("aside-empty")}>No messages loaded for this channel.</BaseText>}
-                {messages.map(m => (
+                {messages.map((m, i) => (
                     <article key={m.id} className={cl("recent")}>
                         <div className={cl("recent-head")}>
                             <BaseText tag="span" size="sm" weight="semibold" className={cl("recent-author")}>{m.authorName}</BaseText>
@@ -40,7 +41,7 @@ export function RecentPanel({ channelId, canQuote, onQuote }: { channelId: strin
                             </ErrorBoundary>
                             <TextButton variant="secondary" className={cl("recent-quote")} disabled={!canQuote} onClick={() => onQuote(m)}>Quote</TextButton>
                         </div>
-                        <div className={classes(markup, cl("recent-body"))}>{renderMarkdown(m.content, channelId)}</div>
+                        <div className={classes(markup, cl("recent-body"))}>{bodies[i]}</div>
                     </article>
                 ))}
             </div>
