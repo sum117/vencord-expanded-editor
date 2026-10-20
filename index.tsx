@@ -42,7 +42,7 @@ function onGlobalKeyDown(e: KeyboardEvent) {
 export default definePlugin({
     name: "ExpandedEditor",
     description: "A full-screen writing surface for long posts: preview, stats, word goals, calm mode, and sending with automatic splitting. Open it from the + menu or with Ctrl+Shift+O.",
-    authors: [{ name: "sum117", id: 0n }],
+    authors: [{ name: "sum117", id: 1349793618214518867n }],
     settings,
     managedStyle,
     contextMenus: {
