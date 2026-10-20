@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { isSpace } from "./text";
+
 export interface Selection {
     readonly start: number;
     readonly end: number;
@@ -58,8 +60,6 @@ const MARKS: Record<MarkId, string> = {
     spoiler: "||",
     code: "`",
 };
-
-const isSpace = (c: string | undefined) => c !== undefined && /\s/.test(c);
 
 function runBefore(text: string, at: number, ch: string): number {
     let n = 0;

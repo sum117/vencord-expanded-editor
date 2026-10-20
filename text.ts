@@ -29,6 +29,8 @@ export function stats(text: string): Stats {
     };
 }
 
+export const isSpace = (c: string | undefined) => c !== undefined && /\s/.test(c);
+
 export const formatCount = (n: number) => n.toLocaleString();
 
 export function formatReadingTime(minutes: number): string {

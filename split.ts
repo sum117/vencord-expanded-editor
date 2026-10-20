@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { isSpace } from "./text";
+
 export type CutLevel = "paragraph" | "line" | "sentence" | "word" | "grapheme";
 export type Boundary = CutLevel | "fence" | "end";
 
@@ -38,8 +40,6 @@ const NEXT_LEVEL: Record<CutLevel, CutLevel | null> = {
 
 const sentenceSegmenter = new Intl.Segmenter(undefined, { granularity: "sentence" });
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
-const isSpace = (c: string | undefined) => c !== undefined && /\s/.test(c);
 
 function trimSpan(source: string, from: number, to: number): Span | null {
     while (from < to && isSpace(source[from])) from++;
