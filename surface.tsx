@@ -203,6 +203,8 @@ function useFocusGuard(root: RefObject<HTMLDivElement | null>, active: boolean) 
                 return;
             }
             if (!target.isContentEditable && !target.matches("textarea, input")) return;
+            // Slate's onFocus would record our textarea as its element and remove() it when the chat box unmounts.
+            e.stopPropagation();
             const back = last && el.contains(last) && last.getClientRects().length
                 ? last
                 : el.querySelector<HTMLElement>("textarea:not([hidden])") ?? el;
